@@ -48,7 +48,13 @@ def skip_list():
     today = datetime.now()
     csv_file = get_csv_filename_by_date(today.strftime("%Y-%m-%d"))
     skips_by_day = defaultdict(list)
-    base_date = datetime.strptime(csv_file[12:22], "%Y-%m-%d")
+    try:
+        base_date = datetime.strptime(
+            csv_file.replace("skip_meals_", "").replace(".csv", ""), "%Y-%m-%d"
+        )
+    except ValueError:
+        return "📂 対象のCSVファイルが壊れているか日付が不正です。"
+
     if os.path.exists(csv_file):
         with open(csv_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -71,7 +77,8 @@ def list_weeks():
 def download_named(filename):
     return send_file(filename, as_attachment=True, download_name=filename)
 
-# HTML テンプレート
+# ---------- HTMLテンプレート ----------
+
 TEMPLATE_FORM = """<!doctype html><html><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1'>
 <title>欠食申告フォーム</title>
@@ -139,3 +146,4 @@ TEMPLATE_WEEKS = """<!doctype html><html><head><meta charset='utf-8'>
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
+
