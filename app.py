@@ -1,5 +1,6 @@
 from flask import Flask, render_template_string, request, redirect, send_file
-import csv, os
+import csv
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -13,29 +14,22 @@ members = [
     "赤繁咲多", "岩瀬駿介", "大沼亮太", "奥村心", "後藤秀波", "高松桜太", "竹中友規", "森尻悠翔", "渡邊義仁"
 ]
 
-days = ["日", "月", "火", "水", "木", "金", "土"]
+days = ["月", "火", "水", "木", "金", "土", "日"]
 meals = ["朝", "夜"]
 
 def get_csv_filename_by_date(date_str):
     try:
-        base_date = datetime.strptime(date_str, "%Y-%m-%d")
+        d = datetime.strptime(date_str, "%Y-%m-%d")
     except:
-        base_date = datetime.now()
-    sunday = base_date - timedelta(days=(base_date.weekday() + 1) % 7)
-    return f"skip_meals_{sunday.strftime('%Y-%m-%d')}.csv"
+        d = datetime.now()
+    monday = d - timedelta(days=d.weekday())
+    return f"skip_meals_{monday.strftime('%Y-%m-%d')}.csv"
 
-def save_comment(text, start, end):
-    with open("comments.csv", mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if os.stat("comments.csv").st_size == 0:
-            writer.writerow(["コメント", "開始日", "終了日"])
-        writer.writerow([text, start, end])
 @app.route("/", methods=["GET", "POST"])
 def index():
     if request.method == "POST":
         name = request.form.get("name")
         date_str = request.form.get("week_date")
-        comment = request.form.get("personal_comment", "")
         csv_file = get_csv_filename_by_date(date_str)
         skips = []
         for day in days:
@@ -46,163 +40,129 @@ def index():
         with open(csv_file, mode="a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             if not file_exists:
-                writer.writerow(["名前"] + [f"{d}_{m}" for d in days for m in meals] + ["コメント"])
-            writer.writerow([name] + skips + [comment])
+                writer.writerow(["名前"] + [f"{d}_{m}" for d in days for m in meals])
+            writer.writerow([name] + skips)
         return redirect("/")
     return render_template_string(TEMPLATE_FORM, members=members, days=days, meals=meals)
 
 @app.route("/list")
 def skip_list():
     today = datetime.now()
-    current_week = get_csv_filename_by_date(today.strftime("%Y-%m-%d"))
+    csv_file = get_csv_filename_by_date(today.strftime("%Y-%m-%d"))
     skips_by_day = defaultdict(list)
-    base_date = datetime.strptime(current_week[12:22], "%Y-%m-%d")
-
-    # 欠食記録の読み込み
-    if os.path.exists(current_week):
-        with open(current_week, newline="", encoding="utf-8") as f:
+    base_date = datetime.strptime(csv_file[12:22], "%Y-%m-%d")
+    if os.path.exists(csv_file):
+        with open(csv_file, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 name = row["名前"]
-                comment = row.get("コメント", "")
                 for i, day in enumerate(days):
                     for meal in meals:
                         key = f"{day}_{meal}"
                         if row.get(key):
-                            date_label = (base_date + timedelta(days=i)).strftime("%Y-%m-%d")
-                            display = f"{name}" + (f"（{comment}）" if comment else "")
-                            skips_by_day[f"{date_label} {meal}"].append(display)
+                            actual_date = (base_date + timedelta(days=i)).strftime("%Y-%m-%d")
+                            skips_by_day[f"{actual_date} {meal}"].append(name)
+    return render_template_string(TEMPLATE_LIST, skips=skips_by_day)
 
-    # コメントの読み込み（現在日付に有効なものだけ）
-    comments_display = []
-    if os.path.exists("comments.csv"):
-        with open("comments.csv", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                try:
-                    start = datetime.strptime(row["開始日"], "%Y-%m-%d").date()
-                    end = datetime.strptime(row["終了日"], "%Y-%m-%d").date()
-                    if start <= today.date() <= end:
-                        comments_display.append(f"{row['コメント']}（{start}〜{end}）")
-                except:
-                    pass
+@app.route("/download")
+def download():
+    today = datetime.now()
+    csv_file = get_csv_filename_by_date(today.strftime("%Y-%m-%d"))
+    return send_file(csv_file, as_attachment=True, download_name=csv_file)
 
-    return render_template_string(TEMPLATE_LIST, skips=skips_by_day, notices=comments_display)
+@app.route("/weeks")
+def list_weeks():
+    files = [f for f in os.listdir(".") if f.startswith("skip_meals_") and f.endswith(".csv")]
+    files.sort(reverse=True)
+    return render_template_string(TEMPLATE_WEEKS, files=files)
 
-@app.route("/comment", methods=["GET", "POST"])
-def comment_page():
-    if request.method == "POST":
-        text = request.form.get("comment")
-        start = request.form.get("start_date")
-        end = request.form.get("end_date")
-        save_comment(text, start, end)
-        return redirect("/list")
-    return render_template_string(TEMPLATE_COMMENT)
+@app.route("/download/<filename>")
+def download_named(filename):
+    return send_file(filename, as_attachment=True, download_name=filename)
+
 TEMPLATE_FORM = """
 <!doctype html>
-<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>欠食申告フォーム</title>
 <style>
-  body { background-color: #e9f1ec; font-family: sans-serif; color: #004225; padding: 20px; }
-  h2 { color: #004225; }
-  label, select, input, textarea { font-size: 1em; margin-bottom: 10px; display: block; width: 100%; }
+  body { font-family: sans-serif; background-color: #f4f4f4; padding: 20px; }
+  .header-imgs { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+  .header-imgs img { max-height: 80px; margin: 5px; }
+  label, select, input[type="date"] { font-size: 1.1em; display: block; margin-bottom: 10px; }
   .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
-  .checkbox-item { padding: 10px; background: #fff; border: 2px solid #004225; border-radius: 6px; min-width: 120px; }
-  button { background: #004225; color: white; padding: 10px 20px; font-size: 1.1em; border: none; border-radius: 6px; margin-top: 10px; }
-  a { color: #004225; font-weight: bold; display: block; margin-top: 20px; }
-</style></head>
+  .checkbox-item { background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 8px; flex: 1 1 45%; min-width: 130px; }
+  button { font-size: 1.2em; padding: 10px 20px; margin-top: 20px; }
+  @media (min-width: 768px) {
+    .checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  }
+</style>
+</head>
 <body>
-<h2>欠食申告フォーム</h2>
+<div class="header-imgs">
+  <img src="/static/xlW1NOej_400x400.png">
+  <img src="/static/MWmcQSx9_400x400.jpg">
+</div>
+<h2>欠食申告フォーム（食べない時だけチェック）</h2>
 <form method="post">
-<label>名前</label>
+<label>名前：</label>
 <select name="name" required>
 <option value="">-- 選択 --</option>
 {% for member in members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
 </select>
-
-<label>申告する週の日曜日の日付</label>
+<label>申告する週の月曜日の日付：</label>
 <input type="date" name="week_date" required>
 
-<label>チェック（不要なときだけ）</label>
 <div class="checkbox-group">
 {% for day in days %}
   {% for meal in meals %}
-    <label class="checkbox-item"><input type="checkbox" name="{{ day }}_{{ meal }}" value="1"> {{ day }} {{ meal }}</label>
+  <label class="checkbox-item">
+    <input type="checkbox" name="{{ day }}_{{ meal }}" value="1">
+    {{ day }} {{ meal }}
+  </label>
   {% endfor %}
 {% endfor %}
 </div>
-
-<label>コメント（任意）</label>
-<textarea name="personal_comment" rows="2"></textarea>
-
 <button type="submit">提出</button>
 </form>
-
-<a href="/list">▶ 欠食一覧を見る</a>
-<a href="/comment">▶ お知らせコメントを書く</a>
+<br><a href="/list">▶ 今週の欠食一覧</a> ｜ <a href="/weeks">📁 過去の一覧</a>
 </body></html>
 """
 
 TEMPLATE_LIST = """
 <!doctype html>
-<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>欠食一覧</title>
-<style>
-  body { background-color: #e9f1ec; font-family: sans-serif; color: #004225; padding: 20px; }
-  h2, h3 { color: #004225; }
-  ul { list-style-type: square; margin-left: 20px; }
-  .notice { background: #d2e6dc; padding: 10px; border-left: 6px solid #004225; margin-bottom: 20px; }
-  a { color: #004225; font-weight: bold; }
-</style></head>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>欠食一覧</title></head>
 <body>
-<h2>欠食一覧</h2>
-
-{% if notices %}
-<div class="notice">
-<b>📢 お知らせ：</b><br>
-{% for n in notices %}
-・{{ n }}<br>
-{% endfor %}
-</div>
-{% endif %}
-
+<h2>欠食者一覧（日付と時間別）</h2>
 {% for key, names in skips.items() %}
 <h3>{{ key }}</h3>
 <ul>
   {% for name in names %}<li>{{ name }}</li>{% endfor %}
 </ul>
 {% endfor %}
+<br>
+<a href="/">◀ 戻る</a> ｜ <a href="/download">CSVダウンロード</a>
+</body></html>
+"""
 
+TEMPLATE_WEEKS = """
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>週別CSV一覧</title></head>
+<body>
+<h2>📅 週ごとの欠食記録</h2>
+<ul>
+{% for file in files %}
+  <li>{{ file }} — <a href="/download/{{ file }}">📥 ダウンロード</a></li>
+{% endfor %}
+</ul>
+<br>
 <a href="/">◀ 戻る</a>
 </body></html>
 """
 
-TEMPLATE_COMMENT = """
-<!doctype html>
-<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>お知らせ投稿</title>
-<style>
-  body { background-color: #e9f1ec; font-family: sans-serif; color: #004225; padding: 20px; }
-  h2 { color: #004225; }
-  label, input, textarea { font-size: 1em; margin-bottom: 10px; display: block; width: 100%; }
-  button { background: #004225; color: white; padding: 10px 20px; font-size: 1.1em; border: none; border-radius: 6px; margin-top: 10px; }
-  a { color: #004225; font-weight: bold; display: block; margin-top: 20px; }
-</style></head>
-<body>
-<h2>📢 お知らせを追加</h2>
-<form method="post">
-<label>コメント内容</label>
-<textarea name="comment" required rows="2"></textarea>
-
-<label>開始日</label>
-<input type="date" name="start_date" required>
-
-<label>終了日</label>
-<input type="date" name="end_date" required>
-
-<button type="submit">追加</button>
-</form>
-
-<a href="/list">◀ 一覧に戻る</a>
-</body></html>
-"""
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
