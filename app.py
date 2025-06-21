@@ -1,11 +1,12 @@
-from flask import Flask, render_template_string, request, redirect, send_file
-import csv
+from flask import Flask, render_template, request, redirect, send_file
 import os
+import csv
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 app = Flask(__name__)
 
+# 部員リスト（名前欄）
 members = [
     "徳本監督", "岡田コーチ",
     "内山壽頼", "大森隼人", "菊池笙", "國井優仁", "佐竹響", "長谷川琉斗", "本田伊吹", "横尾皓",
@@ -16,336 +17,164 @@ members = [
 
 meals = ["朝", "夜"]
 DATA_FOLDER = "data"
-os.makedirs(DATA_FOLDER, exist_ok=True)
 COMMENTS_FILE = os.path.join(DATA_FOLDER, "comments.csv")
-
-def get_csv_filename_by_date(date_str):
-    try:
-        d = datetime.strptime(date_str, "%Y-%m-%d")
-    except:
-        d = datetime.now()
-    return os.path.join(DATA_FOLDER, f"skip_{d.strftime('%Y-%m-%d')}.csv")
-
-def save_skip(name, date, meals_checked):
-    filename = get_csv_filename_by_date(date)
-    file_exists = os.path.exists(filename)
-    with open(filename, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["名前", "日付", "朝", "夜"])
-        writer.writerow([name, date] + meals_checked)
-
-def load_skips():
-    skips = defaultdict(lambda: {"朝": [], "夜": []})
-    now = datetime.now().date()
-    for fname in os.listdir(DATA_FOLDER):
-        if fname.startswith("skip_") and fname.endswith(".csv"):
-            with open(os.path.join(DATA_FOLDER, fname), newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    date = row["日付"]
-                    try:
-                        d_obj = datetime.strptime(date, "%Y-%m-%d").date()
-                        if d_obj >= now:
-                            for meal in meals:
-                                if row[meal] == "1":
-                                    skips[date][meal].append(row["名前"])
-                    except:
-                        pass
-    return skips
-def delete_skip(name, date):
-    filename = get_csv_filename_by_date(date)
-    if not os.path.exists(filename):
-        return
-    rows = []
-    with open(filename, newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            if row["名前"] != name:
-                rows.append(row)
-    with open(filename, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["名前", "日付", "朝", "夜"])
-        writer.writeheader()
-        writer.writerows(rows)
-
-def save_comment(author, content, start_date, end_date):
-    file_exists = os.path.exists(COMMENTS_FILE)
-    with open(COMMENTS_FILE, mode="a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow(["投稿者", "コメント", "開始日", "終了日"])
-        writer.writerow([author, content, start_date, end_date])
-
-def load_active_comments():
-    comments = []
-    today = datetime.now().date()
-    if os.path.exists(COMMENTS_FILE):
-        with open(COMMENTS_FILE, newline="", encoding="utf-8") as f:
+os.makedirs(DATA_FOLDER, exist_ok=True)
+@app.route("/delete", methods=["GET", "POST"])
+def delete_entry():
+    if request.method == "POST":
+        name = request.form["name"]
+        keep_rows = []
+        removed = set()
+        if os.path.exists(CSV_FILE):
+            with open(CSV_FILE, newline="", encoding="utf-8") as f:
+                reader = list(csv.reader(f))
+                header = reader[0]
+                for row in reader[1:]:
+                    if row[0] == name and f"{row[1]}_{row[2]}" not in request.form:
+                        keep_rows.append(row)
+                    else:
+                        removed.add((row[1], row[2]))
+            with open(CSV_FILE, "w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+                writer.writerows(keep_rows)
+        return redirect("/")
+    today = datetime.today().isoformat()
+    options = []
+    if os.path.exists(CSV_FILE):
+        with open(CSV_FILE, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                try:
-                    start = datetime.strptime(row["開始日"], "%Y-%m-%d").date()
-                    end = datetime.strptime(row["終了日"], "%Y-%m-%d").date()
-                    if start <= today <= end:
-                        comments.append(row)
-                except:
-                    pass
-    return comments
+                if row["日付"] >= today:
+                    options.append(row)
+    return render_template_string(TEMPLATE_DELETE, members=MEMBERS, options=options)
 
-def delete_comment(index):
-    if not os.path.exists(COMMENTS_FILE):
-        return
-    rows = []
-    with open(COMMENTS_FILE, newline="", encoding="utf-8") as f:
-        reader = list(csv.reader(f))
-        header = reader[0]
-        rows = reader[1:]
-    if 0 <= index < len(rows):
-        del rows[index]
-    with open(COMMENTS_FILE, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        writer.writerows(rows)
-@app.route("/delete_skip", methods=["GET", "POST"])
-def delete_skip_page():
-    skips = defaultdict(lambda: {"朝": False, "夜": False})
+@app.route("/announce", methods=["GET", "POST"])
+def announce():
+    announcements = load_announcements()
     if request.method == "POST":
-        name = request.form.get("name")
-        delete_date = request.form.get("delete_date")
-        meal_morning = request.form.get("morning")
-        meal_evening = request.form.get("evening")
-        if name and delete_date:
-            # 対象のCSVを読み込んで編集
-            filename = get_csv_filename_by_date(delete_date)
-            new_rows = []
-            if os.path.exists(filename):
-                with open(filename, newline="", encoding="utf-8") as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row["名前"] == name and row["日付"] == delete_date:
-                            if meal_morning:
-                                row["朝"] = ""
-                            if meal_evening:
-                                row["夜"] = ""
-                        new_rows.append(row)
-                with open(filename, mode="w", newline="", encoding="utf-8") as f:
-                    writer = csv.DictWriter(f, fieldnames=["名前", "日付", "朝", "夜"])
-                    writer.writeheader()
-                    writer.writerows(new_rows)
-        return redirect("/delete_skip")
+        author = request.form["author"]
+        message = request.form["message"]
+        start = request.form["start"]
+        end = request.form["end"]
+        announcements.append({"author": author, "message": message, "start": start, "end": end})
+        save_announcements(announcements)
+        return redirect("/")
+    return render_template_string(TEMPLATE_ANNOUNCE, announcements=announcements)
 
-    # 名前を選んだとき、現在の欠食状況を表示
-    name = request.args.get("name")
-    if name:
-        for file in os.listdir("."):
-            if file.startswith("skip_meals_") and file.endswith(".csv"):
-                with open(file, newline="", encoding="utf-8") as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        if row["名前"] == name:
-                            skips[row["日付"]]["朝"] |= (row["朝"] == "1")
-                            skips[row["日付"]]["夜"] |= (row["夜"] == "1")
-    return render_template_string(TEMPLATE_DELETE, members=members, skips=skips)
+@app.route("/announce/delete/<int:index>")
+def delete_announce(index):
+    announcements = load_announcements()
+    if 0 <= index < len(announcements):
+        del announcements[index]
+        save_announcements(announcements)
+    return redirect("/announce")
 
-@app.route("/comments", methods=["GET", "POST"])
-def comments():
-    if request.method == "POST":
-        content = request.form.get("comment")
-        author = request.form.get("author")
-        start = request.form.get("start_date")
-        end = request.form.get("end_date")
-        save_comment(author, content, start, end)
-        return redirect("/comments")
-    comments = load_active_comments()
-    return render_template_string(TEMPLATE_COMMENTS, comments=comments)
+def load_announcements():
+    if not os.path.exists(ANNOUNCE_FILE): return []
+    with open(ANNOUNCE_FILE, encoding="utf-8") as f:
+        return json.load(f)
 
-@app.route("/delete_comment/<int:index>")
-def delete_comment_by_index(index):
-    delete_comment(index)
-    return redirect("/comments")
+def save_announcements(data):
+    with open(ANNOUNCE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 TEMPLATE_FORM = """
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>芝浦工業大学駅伝部｜欠食申請フォーム</title>
+<html><head><meta charset="utf-8"><title>芝浦工業大学駅伝部 欠食フォーム</title>
 <style>
-  body { background-color: #e9f1ec; color: #003b1f; font-family: 'Noto Serif JP', serif; margin: 0; padding: 20px; }
-  h1 { font-size: 1.8em; border-bottom: 2px solid #004225; padding-bottom: 5px; }
-  h2 { margin-top: 30px; color: #004225; }
-  label { display: block; margin-top: 10px; }
-  select, input[type='date'], textarea { padding: 6px; font-size: 1em; width: 100%; max-width: 400px; margin-top: 5px; }
-  .checkbox { margin-top: 15px; }
-  .checkbox label { display: block; margin-bottom: 8px; }
-  button { margin-top: 20px; background: #004225; color: white; font-size: 1em; padding: 10px 20px; border: none; border-radius: 5px; }
-  .announcement { background: #dff0d8; padding: 10px; border-left: 6px solid #4cae4c; margin-bottom: 20px; }
-</style>
-</head>
+body { background: repeating-linear-gradient(45deg, #e9f1ec, #e9f1ec 20px, white 20px, white 40px); font-family: 'Yu Mincho', serif; color: #004225; padding: 20px; }
+h1 { font-size: 2em; font-weight: bold; }
+form { background: white; padding: 20px; border-radius: 10px; }
+textarea, input, select { font-size: 1em; margin: 5px 0; width: 100%; }
+button { background: #004225; color: white; padding: 10px; font-size: 1.1em; border: none; border-radius: 5px; margin-top: 10px; }
+a { color: #004225; font-weight: bold; }
+</style></head>
 <body>
-<h1>🏃‍♂️ 芝浦工業大学駅伝部</h1>
-<h2>📋 欠食申請フォーム</h2>
+<h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
 
-{% for c in comments %}
-  <div class="announcement">
-    <strong>{{ c.author }}</strong>（{{ c.start }}〜{{ c.end }}）<br>{{ c.content }}
-    <div><a href="/delete_comment/{{ loop.index0 }}">❌削除</a></div>
-  </div>
-{% endfor %}
+{% if announcements %}
+<div style="border:2px solid #004225;padding:10px;margin-bottom:20px;background:#f5fff5;">
+  <h2>📢 お知らせ</h2>
+  {% for ann in announcements %}
+    {% if ann.start <= now <= ann.end %}
+    <p><strong>{{ ann.author }}</strong>：{{ ann.message }}（{{ ann.start }}〜{{ ann.end }}）
+    <a href="/announce/delete/{{ loop.index0 }}">❌削除</a></p>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 
 <form method="post">
   <label>名前：</label>
   <select name="name" required>
-    <option value="">-- 選択してください --</option>
-    {% for m in members %}
-      <option value="{{ m }}">{{ m }}</option>
-    {% endfor %}
+    <option value="">-- 選択 --</option>
+    {% for m in members %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
   </select>
-
-  <label>日付を選択：</label>
+  <label>欠食したい日付：</label>
   <input type="date" name="date" required>
-
-  <div class="checkbox">
-    <label><input type="checkbox" name="morning" value="1"> 朝食 欠食</label>
-    <label><input type="checkbox" name="evening" value="1"> 夕食 欠食</label>
-  </div>
-
-  <button type="submit">申請する</button>
+  <label>朝食：</label><input type="checkbox" name="breakfast" value="1">
+  <label>夕食：</label><input type="checkbox" name="dinner" value="1"><br>
+  <button type="submit">提出</button>
 </form>
-
-<br><a href="/list">📅 欠食一覧を見る</a> ｜ <a href="/weeks">📁 CSV一覧</a> ｜ <a href="/delete_skip">🗑 欠食申請の削除</a> ｜ <a href="/comments">📝 お知らせ管理</a>
+<br><a href="/list">▶ 欠食者一覧</a>｜<a href="/weeks">📅 CSVダウンロード</a>｜<a href="/delete">🗑️ 申請削除</a>｜<a href="/announce">📢 お知らせ投稿</a>
 </body></html>
 """
+
 TEMPLATE_LIST = """
 <!doctype html>
-<html>
-<head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>欠食者一覧</title>
-<style>
-  body { font-family: sans-serif; background-color: #f5f9f5; color: #004225; padding: 20px; }
-  h2 { color: #004225; border-bottom: 2px solid #004225; }
-  h3 { margin-top: 20px; }
-  ul { list-style-type: square; }
-  a { color: #004225; font-weight: bold; }
-</style>
-</head>
-<body>
-<h2>📋 欠食者一覧（日付と時間別）</h2>
+<html><head><meta charset="utf-8"><title>欠食一覧</title></head>
+<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
+<h2>📋 現在の欠食者一覧</h2>
 {% for key, names in skips.items() %}
-  <h3>{{ key }}</h3>
-  <ul>{% for name in names %}<li>{{ name }}</li>{% endfor %}</ul>
+<h3>{{ key }}</h3>
+<ul>
+  {% for name in names %}<li>{{ name }}</li>{% endfor %}
+</ul>
 {% endfor %}
-<br><a href='/'>◀ 戻る</a> ｜ <a href='/download'>📥 CSVダウンロード</a>
+<a href="/">◀ 戻る</a>
 </body></html>
 """
 
 TEMPLATE_DELETE = """
 <!doctype html>
-<html>
-<head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>欠食申請削除</title>
-<style>
-  body { font-family: sans-serif; background-color: #f5f9f5; color: #004225; padding: 20px; }
-  h2 { color: #004225; }
-  label, select, input[type="date"] { font-size: 1.1em; margin-bottom: 10px; display: block; }
-  .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
-  .checkbox-item { border: 1px solid #004225; padding: 10px; border-radius: 5px; background-color: white; }
-  button { font-size: 1em; padding: 8px 16px; background-color: #004225; color: white; border: none; border-radius: 4px; margin-top: 10px; }
-  a { color: #004225; font-weight: bold; }
-</style>
-</head>
-<body>
-<h2>🗑 欠食申請を削除</h2>
+<html><head><meta charset="utf-8"><title>欠食削除</title></head>
+<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
+<h2>🗑️ 欠食申請を削除</h2>
 <form method="post">
 <label>名前：</label>
-<select name="name" required>
-  <option value="">-- 選択 --</option>
-  {% for member in members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
+<select name="name">
+  {% for m in members %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
 </select>
-<label>削除したい日付：</label>
-<input type="date" name="date" required>
-<div class="checkbox-group">
-  {% for meal in meals %}
-    <label class="checkbox-item">
-      <input type="checkbox" name="delete_{{ meal }}" value="1"> {{ meal }}
-    </label>
-  {% endfor %}
-</div>
-<button type="submit">削除する</button>
+<p>削除したい申請（該当するものに✔）：</p>
+{% for row in options %}
+  <label><input type="checkbox" name="{{ row['日付'] }}_{{ row['食事'] }}"> {{ row['日付'] }} {{ row['食事'] }}</label><br>
+{% endfor %}
+<button type="submit">削除</button>
 </form>
-<br><a href="/">◀ 戻る</a>
+<a href="/">◀ 戻る</a>
 </body></html>
 """
 
-TEMPLATE_COMMENTS = """
+TEMPLATE_ANNOUNCE = """
 <!doctype html>
-<html>
-<head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>お知らせ管理</title>
-<style>
-  body { font-family: sans-serif; background-color: #f5f9f5; color: #004225; padding: 20px; }
-  h2 { color: #004225; }
-  input, textarea, select, button { font-size: 1em; margin-bottom: 10px; width: 100%; max-width: 500px; }
-  textarea { height: 80px; }
-  button { background-color: #004225; color: white; border: none; border-radius: 4px; padding: 10px; }
-  .notice { border: 1px solid #ccc; background: #fff; padding: 10px; margin-bottom: 10px; border-left: 4px solid #004225; }
-  a { color: #004225; font-weight: bold; }
-</style>
-</head>
-<body>
-<h2>📢 お知らせ投稿・管理</h2>
+<html><head><meta charset="utf-8"><title>お知らせ</title></head>
+<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
+<h2>📢 お知らせ投稿</h2>
 <form method="post">
-  <label>名前（投稿者）：</label>
-  <select name="name" required>
-    <option value="">-- 選択 --</option>
-    {% for member in members %}<option value="{{ member }}">{{ member }}</option>{% endfor %}
-  </select>
-  <label>お知らせ内容：</label>
-  <textarea name="content" required></textarea>
-  <label>表示期間（開始日）：</label>
-  <input type="date" name="start_date" required>
-  <label>表示期間（終了日）：</label>
-  <input type="date" name="end_date" required>
-  <button type="submit">送信</button>
+<label>名前：</label><input name="author" required><br>
+<label>お知らせ：</label><textarea name="message" required></textarea><br>
+<label>開始日：</label><input type="date" name="start" required><br>
+<label>終了日：</label><input type="date" name="end" required><br>
+<button type="submit">投稿</button>
 </form>
-
-<h3>📋 現在のお知らせ</h3>
-{% for comment in comments %}
-  <div class="notice">
-    <strong>{{ comment.start }} ～ {{ comment.end }} by {{ comment.name }}</strong><br>
-    {{ comment.content }}
-    <form method="post" style="margin-top:5px;">
-      <input type="hidden" name="delete" value="{{ loop.index0 }}">
-      <button type="submit">このお知らせを削除</button>
-    </form>
-  </div>
+<h3>現在のお知らせ</h3>
+{% for a in announcements %}
+  <p><strong>{{ a.author }}</strong>：{{ a.message }}（{{ a.start }}〜{{ a.end }}）<a href="/announce/delete/{{ loop.index0 }}">❌削除</a></p>
 {% endfor %}
-<br><a href="/">◀ 戻る</a>
+<a href="/">◀ 戻る</a>
 </body></html>
 """
 
-TEMPLATE_WEEKS = """
-<!doctype html>
-<html>
-<head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>週別CSV一覧</title>
-<style>
-  body { font-family: sans-serif; background-color: #f5f9f5; color: #004225; padding: 20px; }
-  h2 { color: #004225; }
-  ul { list-style-type: circle; }
-  a { color: #004225; font-weight: bold; }
-</style>
-</head>
-<body>
-<h2>📁 過去の欠食記録CSV</h2>
-<ul>
-{% for file in files %}
-  <li>{{ file }} — <a href="/download/{{ file }}">📥 ダウンロード</a></li>
-{% endfor %}
-</ul>
-<br><a href="/">◀ 戻る</a>
-</body></html>
-"""
-import os
-
+# 最後にアプリを起動
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render用ポート取得
-    app.run(debug=True, host="0.0.0.0", port=port)
-
+    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
