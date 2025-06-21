@@ -133,3 +133,7 @@ def delete_announcement():
             df = df.drop(index)
             df.to_csv(ANNOUNCE_FILE, index=False, encoding="utf-8")
     return redirect("/announce")
+if __name__ == "__main__":
+    import os
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
