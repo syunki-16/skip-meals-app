@@ -6,20 +6,30 @@
 </head>
 <body>
   <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
+
   <form method="POST">
     <label>名前：</label>
     <select name="name">
       {% for m in members %}
-        <option value="{{ m }}">{{ m }}</option>
+      <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
     </select><br><br>
 
-    <label>日付と時間帯（朝・夜）:</label><br>
-    <input type="date" name="dates" multiple>
-    <input type="checkbox" name="dates" value="_朝">朝
-    <input type="checkbox" name="dates" value="_夜">夜<br><br>
+    <label>欠食する日と時間帯を選択：</label><br><br>
 
-    <button type="submit">申請する</button>
+    {% for i in range(10) %}
+      <input type="date" name="date_{{ i }}">
+      <input type="checkbox" name="time_{{ i }}" value="朝">朝
+      <input type="checkbox" name="time_{{ i }}" value="夜">夜<br><br>
+    {% endfor %}
+
+    <button type="submit">送信</button>
   </form>
+
+  <br>
+  <a href="/list">▶ 欠食者一覧へ</a><br>
+  <a href="/delete">▶ 欠食申請の削除</a><br>
+  <a href="/announce">▶ お知らせ管理</a><br>
+
 </body>
 </html>
