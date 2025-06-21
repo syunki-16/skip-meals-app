@@ -3,45 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 </head>
 <body>
   <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
-
   <form method="POST">
-    <label for="name">名前:</label>
-    <select name="name" id="name">
+    <label>名前：</label>
+    <select name="name">
       {% for m in members %}
         <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
-    </select>
+    </select><br><br>
 
-    <label for="dates">欠食日:</label>
-    <input type="text" id="dates" name="dates" placeholder="日付を選択してください" readonly>
+    <label>日付と時間帯（朝・夜）:</label><br>
+    <input type="date" name="dates" multiple>
+    <input type="checkbox" name="dates" value="_朝">朝
+    <input type="checkbox" name="dates" value="_夜">夜<br><br>
 
-    <div>
-      <label><input type="checkbox" name="time" value="朝"> 朝</label>
-      <label><input type="checkbox" name="time" value="夜"> 夜</label>
-    </div>
-
-    <button type="submit">送信</button>
+    <button type="submit">申請する</button>
   </form>
-
-  <hr>
-  <p><a href="/list">▶ 欠食者一覧へ</a></p>
-  <p><a href="/delete">▶ 欠食申請の削除</a></p>
-  <p><a href="/announcements">▶ お知らせ管理</a></p>
-
-  <script>
-    flatpickr("#dates", {
-      locale: "ja",
-      mode: "multiple",
-      dateFormat: "Y-m-d",
-      minDate: "today",
-    });
-  </script>
 </body>
 </html>
