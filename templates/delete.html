@@ -2,30 +2,29 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>欠食申請削除</title>
+  <title>欠食削除ページ</title>
 </head>
 <body>
   <h1>欠食申請の削除</h1>
   <form method="POST">
-    <label>名前:</label>
+    <label>名前：</label>
     <select name="name">
-      {% for e in entries|unique(attribute='name') %}
-        <option value="{{ e.name }}">{{ e.name }}</option>
+      {% for m in members %}
+        <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
     </select><br><br>
 
-    <label>日付:</label>
-    <select name="date">
-      {% for e in entries %}
-        <option value="{{ e.date }}">{{ e.date }}</option>
-      {% endfor %}
+    <label>日付：</label>
+    <input type="date" name="date"><br><br>
+
+    <label>朝/夜：</label>
+    <select name="time">
+      <option value="朝">朝</option>
+      <option value="夜">夜</option>
     </select><br><br>
 
-    <button type="submit">削除</button>
+    <button type="submit">削除する</button>
   </form>
-
-  <p><a href="/form">◀ フォームに戻る</a></p>
+  <a href="/list">一覧へ戻る</a>
 </body>
 </html>
-
-
