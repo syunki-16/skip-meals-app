@@ -1,1 +1,45 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
+  </div>
+
+  <div class="announcement-box">
+    {% if announcements %}
+      <ul>
+        {% for ann in announcements %}
+          <li><strong>{{ ann["author"] }}</strong>: {{ ann["message"] }}（{{ ann["start"] }}〜{{ ann["end"] }}）</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <form method="POST">
+    <label>名前:</label>
+    <select name="name">
+      {% for m in members %}
+        <option value="{{ m }}">{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <label>日付と欠食:</label>
+    {% for i in range(7) %}
+      {% set date = (now + timedelta(days=i)).strftime('%Y-%m-%d') %}
+      <div>
+        <strong>{{ date }}</strong>
+        <label><input type="checkbox" name="dates" value="{{ date }}_朝"> 朝</label>
+        <label><input type="checkbox" name="dates" value="{{ date }}_夜"> 夜</label>
+      </div>
+    {% endfor %}
+
+    <button type="submit">申請</button>
+  </form>
+</body>
+</html>
 
