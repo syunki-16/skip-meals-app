@@ -2,27 +2,30 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>申請削除</title>
+  <title>欠食申請削除</title>
 </head>
 <body>
   <h1>欠食申請の削除</h1>
   <form method="POST">
     <label>名前:</label>
     <select name="name">
-      {% for entry in entries %}
-        <option value="{{ entry.name }}">{{ entry.name }}</option>
+      {% for e in entries|unique(attribute='name') %}
+        <option value="{{ e.name }}">{{ e.name }}</option>
       {% endfor %}
-    </select>
+    </select><br><br>
 
     <label>日付:</label>
     <select name="date">
-      {% for entry in entries %}
-        <option value="{{ entry.date }}">{{ entry.date }}</option>
+      {% for e in entries %}
+        <option value="{{ e.date }}">{{ e.date }}</option>
       {% endfor %}
-    </select>
+    </select><br><br>
 
     <button type="submit">削除</button>
   </form>
+
+  <p><a href="/form">◀ フォームに戻る</a></p>
 </body>
 </html>
+
 
