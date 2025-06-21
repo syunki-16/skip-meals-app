@@ -2,44 +2,43 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
+  <title>欠食申請フォーム</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <div class="header">
-    <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
-  </div>
+  <h1>欠食申請フォーム</h1>
 
-  <div class="announcement-box">
-    {% if announcements %}
-      <ul>
-        {% for ann in announcements %}
-          <li><strong>{{ ann["author"] }}</strong>: {{ ann["message"] }}（{{ ann["start"] }}〜{{ ann["end"] }}）</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-  </div>
+  {% for ann in announcements %}
+    <div style="border: 1px solid #555; padding: 8px; margin-bottom: 10px; background-color: #f0fff0;">
+      <strong>{{ ann.author }}より（{{ ann.start }}〜{{ ann.end }}）:</strong><br>
+      {{ ann.message }}
+    </div>
+  {% endfor %}
 
   <form method="POST">
     <label>名前:</label>
     <select name="name">
-      {% for m in members %}
-        <option value="{{ m }}">{{ m }}</option>
+      {% for member in members %}
+        <option value="{{ member }}">{{ member }}</option>
       {% endfor %}
-    </select>
+    </select><br><br>
 
-    <label>日付と欠食:</label>
-    {% for i in range(7) %}
+    <label>欠食日と時間帯を選んでください:</label><br>
+    {% for i in range(14) %}
       {% set date = (now + timedelta(days=i)).strftime('%Y-%m-%d') %}
       <div>
         <strong>{{ date }}</strong>
-        <label><input type="checkbox" name="dates" value="{{ date }}_朝"> 朝</label>
-        <label><input type="checkbox" name="dates" value="{{ date }}_夜"> 夜</label>
+        <input type="checkbox" name="dates" value="{{ date }}_朝"> 朝
+        <input type="checkbox" name="dates" value="{{ date }}_夜"> 夜
       </div>
     {% endfor %}
-
-    <button type="submit">申請</button>
+    <br>
+    <button type="submit">送信</button>
   </form>
+
+  <p><a href="/list">▶ 欠食者一覧へ</a></p>
+  <p><a href="/delete">▶ 欠食申請の削除</a></p>
+  <p><a href="/announce">▶ お知らせ管理</a></p>
 </body>
 </html>
 
