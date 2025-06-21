@@ -2,43 +2,46 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>欠食申請フォーム</title>
+  <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ja.js"></script>
 </head>
 <body>
-  <h1>欠食申請フォーム</h1>
-
-  {% for ann in announcements %}
-    <div style="border: 1px solid #555; padding: 8px; margin-bottom: 10px; background-color: #f0fff0;">
-      <strong>{{ ann.author }}より（{{ ann.start }}〜{{ ann.end }}）:</strong><br>
-      {{ ann.message }}
-    </div>
-  {% endfor %}
+  <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
 
   <form method="POST">
-    <label>名前:</label>
-    <select name="name">
-      {% for member in members %}
-        <option value="{{ member }}">{{ member }}</option>
+    <label for="name">名前:</label>
+    <select name="name" id="name">
+      {% for m in members %}
+        <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
-    </select><br><br>
+    </select>
 
-    <label>欠食日と時間帯を選んでください:</label><br>
-    {% for i in range(14) %}
-      {% set date = (now + timedelta(days=i)).strftime('%Y-%m-%d') %}
-      <div>
-        <strong>{{ date }}</strong>
-        <input type="checkbox" name="dates" value="{{ date }}_朝"> 朝
-        <input type="checkbox" name="dates" value="{{ date }}_夜"> 夜
-      </div>
-    {% endfor %}
-    <br>
+    <label for="dates">欠食日:</label>
+    <input type="text" id="dates" name="dates" placeholder="日付を選択してください" readonly>
+
+    <div>
+      <label><input type="checkbox" name="time" value="朝"> 朝</label>
+      <label><input type="checkbox" name="time" value="夜"> 夜</label>
+    </div>
+
     <button type="submit">送信</button>
   </form>
 
+  <hr>
   <p><a href="/list">▶ 欠食者一覧へ</a></p>
   <p><a href="/delete">▶ 欠食申請の削除</a></p>
-  <p><a href="/announce">▶ お知らせ管理</a></p>
+  <p><a href="/announcements">▶ お知らせ管理</a></p>
+
+  <script>
+    flatpickr("#dates", {
+      locale: "ja",
+      mode: "multiple",
+      dateFormat: "Y-m-d",
+      minDate: "today",
+    });
+  </script>
 </body>
 </html>
-
