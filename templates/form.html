@@ -3,33 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
+  <div class="header">
+    <h1>🍴 芝浦工業大学駅伝部 欠食申請フォーム</h1>
+  </div>
+
+  {% if active_announcements %}
+  <div class="announcement-box">
+    {% for ann in active_announcements %}
+      <p><strong>{{ ann.name }}：</strong>{{ ann.comment }}（{{ ann.start_date }}〜{{ ann.end_date }}）</p>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <form method="POST">
-    <label>名前：</label>
-    <select name="name">
+    <label for="name">名前：</label>
+    <select name="name" id="name">
+      <option value="">--選択--</option>
       {% for m in members %}
-      <option value="{{ m }}">{{ m }}</option>
+        <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
-    </select><br><br>
+    </select>
 
-    <label>欠食する日と時間帯を選択：</label><br><br>
+    <label for="date">申告したい日付：</label>
+    <input type="date" name="date" id="date">
 
-    {% for i in range(10) %}
-      <input type="date" name="date_{{ i }}">
-      <input type="checkbox" name="time_{{ i }}" value="朝">朝
-      <input type="checkbox" name="time_{{ i }}" value="夜">夜<br><br>
-    {% endfor %}
+    <div class="checkboxes">
+      <label><input type="checkbox" name="time" value="朝"> 朝</label>
+      <label><input type="checkbox" name="time" value="夜"> 夜</label>
+    </div>
 
-    <button type="submit">送信</button>
+    <label for="comment">コメント（任意）：</label>
+    <textarea name="comment" id="comment" rows="2"></textarea>
+
+    <button type="submit">提出</button>
   </form>
 
-  <br>
-  <a href="/list">▶ 欠食者一覧へ</a><br>
-  <a href="/delete">▶ 欠食申請の削除</a><br>
-  <a href="/announce">▶ お知らせ管理</a><br>
-
+  <div class="nav-links">
+    <a href="/list">▶今週の欠食一覧</a>
+    <a href="/list?past=1">▶過去の欠食一覧</a>
+    <a href="/csv">▶CSVを見る</a>
+  </div>
 </body>
 </html>
