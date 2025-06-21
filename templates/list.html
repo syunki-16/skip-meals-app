@@ -3,30 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>欠食者一覧</title>
-  <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <h1>欠食者一覧</h1>
-  <table>
-    <thead>
-      <tr>
-        <th>日付</th>
-        <th>朝</th>
-        <th>夜</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for date in sorted(skips.keys()) %}
-        <tr>
-          <td>{{ date }}</td>
-          <td>{{ skips[date]['朝'] | join(", ") if '朝' in skips[date] else '' }}</td>
-          <td>{{ skips[date]['夜'] | join(", ") if '夜' in skips[date] else '' }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <hr>
-  <p><a href="/form">◀ フォームへ戻る</a></p>
+  {% for date, times in skips.items() %}
+    <h2>{{ date }}</h2>
+    <strong>朝:</strong> {{ times['朝'] | join(', ') }}<br>
+    <strong>夜:</strong> {{ times['夜'] | join(', ') }}<br><br>
+  {% endfor %}
+  <a href="/form">戻る</a>
 </body>
 </html>
