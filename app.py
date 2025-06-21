@@ -25,6 +25,7 @@ def get_csv_filename_for_week(date_str):
 
 # お知らせファイル
 ANNOUNCE_FILE = "announcements.csv"
+
 @app.route("/")
 def home():
     return redirect("/form")
@@ -33,28 +34,42 @@ def home():
 def form():
     if request.method == "POST":
         name = request.form.get("name")
-        dates = request.form.getlist("dates")
-        if not name or not dates:
-            return redirect("/form")
+        date_values = request.form.getlist("dates")
 
-        # 保存処理（週単位でCSV保存）
-        for date_str in dates:
+        for val in date_values:
+            date_str, time_slot = val.split("_")
             csv_file = get_csv_filename_for_week(date_str)
-            day = datetime.strptime(date_str, "%Y-%m-%d").strftime("%a")  # 曜日
-            row = {"名前": name, "日付": date_str, "曜日": day}
+            row = {"名前": name, "日付": date_str, "曜日": datetime.strptime(date_str, "%Y-%m-%d").strftime("%a"), "朝": "", "夜": ""}
+            if time_slot == "朝":
+                row["朝"] = "○"
+            elif time_slot == "夜":
+                row["夜"] = "○"
+
             if os.path.exists(csv_file):
                 df = pd.read_csv(csv_file)
-                df = df[df["名前"] != name]  # 同名削除（重複防止）
+                df = df[~((df["名前"] == name) & (df["日付"] == date_str))]  # 同名・同日を削除
                 df = pd.concat([df, pd.DataFrame([row])])
             else:
                 df = pd.DataFrame([row])
             df.to_csv(csv_file, index=False, encoding="utf-8")
+
         return redirect("/list")
 
-    return render_template("form.html", members=members)
+    # お知らせ読み込み（現在表示すべきものだけ）
+    announcements = []
+    if os.path.exists(ANNOUNCE_FILE):
+        df = pd.read_csv(ANNOUNCE_FILE)
+        today = datetime.now().date()
+        for _, row in df.iterrows():
+            start = datetime.strptime(row["start"], "%Y-%m-%d").date()
+            end = datetime.strptime(row["end"], "%Y-%m-%d").date()
+            if start <= today <= end:
+                announcements.append(row.to_dict())
+
+    return render_template("form.html", members=members, announcements=announcements, now=datetime.now(), timedelta=timedelta)
+
 @app.route("/list")
 def list_skips():
-    # 本日以降の日付の申請のみ表示（過去は自動で非表示）
     skips = []
     today = datetime.now().date()
     for file in sorted(os.listdir(".")):
@@ -72,7 +87,6 @@ def delete_entry():
         name = request.form.get("name")
         date = request.form.get("date")
 
-        # 指定日のファイルから削除
         csv_file = get_csv_filename_for_week(date)
         if os.path.exists(csv_file):
             df = pd.read_csv(csv_file)
@@ -81,7 +95,6 @@ def delete_entry():
 
         return redirect("/list")
 
-    # フォーム表示用：最新の欠食データ取得
     entries = []
     for file in sorted(os.listdir(".")):
         if file.startswith("skip_") and file.endswith(".csv"):
@@ -89,3 +102,34 @@ def delete_entry():
             for _, row in df.iterrows():
                 entries.append({"name": row["名前"], "date": row["日付"]})
     return render_template("delete.html", entries=entries)
+
+@app.route("/announce", methods=["GET", "POST"])
+def manage_announce():
+    if request.method == "POST":
+        author = request.form.get("author")
+        message = request.form.get("message")
+        start = request.form.get("start")
+        end = request.form.get("end")
+        if os.path.exists(ANNOUNCE_FILE):
+            df = pd.read_csv(ANNOUNCE_FILE)
+        else:
+            df = pd.DataFrame(columns=["author", "message", "start", "end"])
+        df.loc[len(df)] = [author, message, start, end]
+        df.to_csv(ANNOUNCE_FILE, index=False, encoding="utf-8")
+        return redirect("/announce")
+
+    announcements = []
+    if os.path.exists(ANNOUNCE_FILE):
+        df = pd.read_csv(ANNOUNCE_FILE)
+        announcements = df.to_dict(orient="records")
+    return render_template("announce.html", announcements=announcements)
+
+@app.route("/announce/delete", methods=["POST"])
+def delete_announcement():
+    index = int(request.form.get("index"))
+    if os.path.exists(ANNOUNCE_FILE):
+        df = pd.read_csv(ANNOUNCE_FILE)
+        if 0 <= index < len(df):
+            df = df.drop(index)
+            df.to_csv(ANNOUNCE_FILE, index=False, encoding="utf-8")
+    return redirect("/announce")
