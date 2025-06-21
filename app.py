@@ -1,12 +1,15 @@
-from flask import Flask, render_template, request, redirect, send_file
-import os
+from flask import Flask, render_template_string, request, redirect, send_file
 import csv
+import os
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 app = Flask(__name__)
 
-# 部員リスト（名前欄）
+@app.route("/")
+def home():
+    return redirect("/form")
+
 members = [
     "徳本監督", "岡田コーチ",
     "内山壽頼", "大森隼人", "菊池笙", "國井優仁", "佐竹響", "長谷川琉斗", "本田伊吹", "横尾皓",
@@ -17,164 +20,201 @@ members = [
 
 meals = ["朝", "夜"]
 DATA_FOLDER = "data"
-COMMENTS_FILE = os.path.join(DATA_FOLDER, "comments.csv")
 os.makedirs(DATA_FOLDER, exist_ok=True)
+COMMENTS_FILE = os.path.join(DATA_FOLDER, "comments.csv")
+
+def get_csv_filename_by_date(date_str):
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+    except:
+        d = datetime.now()
+    return os.path.join(DATA_FOLDER, f"skip_{d.strftime('%Y-%m-%d')}.csv")
+
+def save_skip(name, date, meals_checked):
+    filename = get_csv_filename_by_date(date)
+    file_exists = os.path.exists(filename)
+    with open(filename, mode="a+", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["名前", "日付"] + meals)
+        writer.writerow([name, date] + meals_checked)
+
+def load_skips():
+    skips = defaultdict(lambda: {"朝": [], "夜": []})
+    now = datetime.now().date()
+    for fname in os.listdir(DATA_FOLDER):
+        if fname.startswith("skip_") and fname.endswith(".csv"):
+            date_str = fname[5:-4]
+            try:
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                if date_obj < now:
+                    continue
+                with open(os.path.join(DATA_FOLDER, fname), encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    next(reader, None)
+                    for row in reader:
+                        name, _, *meals_checked = row
+                        for m, val in zip(meals, meals_checked):
+                            if val == "1":
+                                skips[date_str][m].append(name)
+            except:
+                continue
+    return skips
+@app.route("/")
+def index():
+    skips = load_skips()
+    today = datetime.now().date()
+    filtered_skips = {
+        date: data for date, data in skips.items()
+        if datetime.strptime(date, "%Y-%m-%d").date() >= today
+    }
+
+    comments = load_comments()
+    comments.sort(key=lambda x: x["start"], reverse=True)
+
+    return render_template_string(TEMPLATE_FORM,
+        members=members,
+        skips=filtered_skips,
+        meals=meals,
+        today=today.strftime("%Y-%m-%d"),
+        comments=comments
+    )
+
+@app.route("/submit", methods=["POST"])
+def submit():
+    name = request.form["name"]
+    date = request.form["date"]
+    selected_meals = [meal for meal in meals if meal in request.form]
+    if selected_meals:
+        save_skip(name, date, selected_meals)
+    return redirect("/")
+
 @app.route("/delete", methods=["GET", "POST"])
-def delete_entry():
+def delete():
     if request.method == "POST":
         name = request.form["name"]
-        keep_rows = []
-        removed = set()
-        if os.path.exists(CSV_FILE):
-            with open(CSV_FILE, newline="", encoding="utf-8") as f:
-                reader = list(csv.reader(f))
-                header = reader[0]
-                for row in reader[1:]:
-                    if row[0] == name and f"{row[1]}_{row[2]}" not in request.form:
-                        keep_rows.append(row)
-                    else:
-                        removed.add((row[1], row[2]))
-            with open(CSV_FILE, "w", newline="", encoding="utf-8") as f:
+        date = request.form["date"]
+        filename = get_csv_filename_by_date(date)
+        if os.path.exists(filename):
+            with open(filename, newline="", encoding="utf-8") as f:
+                rows = list(csv.reader(f))
+            with open(filename, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(header)
-                writer.writerows(keep_rows)
+                for row in rows:
+                    if row and row[0] != name:
+                        writer.writerow(row)
         return redirect("/")
-    today = datetime.today().isoformat()
-    options = []
-    if os.path.exists(CSV_FILE):
-        with open(CSV_FILE, encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if row["日付"] >= today:
-                    options.append(row)
-    return render_template_string(TEMPLATE_DELETE, members=MEMBERS, options=options)
-
-@app.route("/announce", methods=["GET", "POST"])
-def announce():
-    announcements = load_announcements()
-    if request.method == "POST":
-        author = request.form["author"]
-        message = request.form["message"]
-        start = request.form["start"]
-        end = request.form["end"]
-        announcements.append({"author": author, "message": message, "start": start, "end": end})
-        save_announcements(announcements)
-        return redirect("/")
-    return render_template_string(TEMPLATE_ANNOUNCE, announcements=announcements)
-
-@app.route("/announce/delete/<int:index>")
-def delete_announce(index):
-    announcements = load_announcements()
-    if 0 <= index < len(announcements):
-        del announcements[index]
-        save_announcements(announcements)
-    return redirect("/announce")
-
-def load_announcements():
-    if not os.path.exists(ANNOUNCE_FILE): return []
-    with open(ANNOUNCE_FILE, encoding="utf-8") as f:
-        return json.load(f)
-
-def save_announcements(data):
-    with open(ANNOUNCE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    else:
+        return render_template_string(TEMPLATE_DELETE, members=members)
 TEMPLATE_FORM = """
-<!doctype html>
-<html><head><meta charset="utf-8"><title>芝浦工業大学駅伝部 欠食フォーム</title>
-<style>
-body { background: repeating-linear-gradient(45deg, #e9f1ec, #e9f1ec 20px, white 20px, white 40px); font-family: 'Yu Mincho', serif; color: #004225; padding: 20px; }
-h1 { font-size: 2em; font-weight: bold; }
-form { background: white; padding: 20px; border-radius: 10px; }
-textarea, input, select { font-size: 1em; margin: 5px 0; width: 100%; }
-button { background: #004225; color: white; padding: 10px; font-size: 1.1em; border: none; border-radius: 5px; margin-top: 10px; }
-a { color: #004225; font-weight: bold; }
-</style></head>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>芝浦工業大学駅伝部 欠食フォーム</title>
+  <style>
+    body {
+      font-family: "Hiragino Mincho Pro", serif;
+      background: repeating-linear-gradient(
+        45deg,
+        #004225,
+        #004225 40px,
+        #f5f5f5 40px,
+        #f5f5f5 80px
+      );
+      padding: 20px;
+      color: #004225;
+    }
+    h1 {
+      font-size: 32px;
+      text-align: center;
+    }
+    .form-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 600px;
+      margin: 20px auto;
+    }
+    label, select, input[type="checkbox"] {
+      display: block;
+      margin-top: 10px;
+    }
+  </style>
+</head>
 <body>
-<h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
+  <h1>芝浦工業大学駅伝部 欠食申請フォーム</h1>
+  <div class="form-box">
+    <form action="/submit" method="post">
+      <label>名前:
+        <select name="name" required>
+          {% for name in members %}
+            <option value="{{ name }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>日付:
+        <input type="date" name="date" required>
+      </label>
+      <label><input type="checkbox" name="朝"> 朝食</label>
+      <label><input type="checkbox" name="夜"> 夕食</label>
+      <button type="submit">申請</button>
+    </form>
+  </div>
 
-{% if announcements %}
-<div style="border:2px solid #004225;padding:10px;margin-bottom:20px;background:#f5fff5;">
   <h2>📢 お知らせ</h2>
-  {% for ann in announcements %}
-    {% if ann.start <= now <= ann.end %}
-    <p><strong>{{ ann.author }}</strong>：{{ ann.message }}（{{ ann.start }}〜{{ ann.end }}）
-    <a href="/announce/delete/{{ loop.index0 }}">❌削除</a></p>
+  {% for comment in comments %}
+    {% if comment["start"] <= today <= comment["end"] %}
+      <div style="border-left: 5px solid #004225; padding-left: 10px; margin-bottom: 8px;">
+        <strong>{{ comment["author"] }}</strong>：{{ comment["text"] }}
+        （{{ comment["start"] }}～{{ comment["end"] }}）
+        <a href="/delete_comment?index={{ loop.index0 }}">❌削除</a>
+      </div>
     {% endif %}
   {% endfor %}
-</div>
-{% endif %}
 
-<form method="post">
-  <label>名前：</label>
-  <select name="name" required>
-    <option value="">-- 選択 --</option>
-    {% for m in members %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
-  </select>
-  <label>欠食したい日付：</label>
-  <input type="date" name="date" required>
-  <label>朝食：</label><input type="checkbox" name="breakfast" value="1">
-  <label>夕食：</label><input type="checkbox" name="dinner" value="1"><br>
-  <button type="submit">提出</button>
-</form>
-<br><a href="/list">▶ 欠食者一覧</a>｜<a href="/weeks">📅 CSVダウンロード</a>｜<a href="/delete">🗑️ 申請削除</a>｜<a href="/announce">📢 お知らせ投稿</a>
-</body></html>
-"""
+  <h2>📋 欠食者一覧</h2>
+  {% for date, entries in skips.items() %}
+    <h3>{{ date }}</h3>
+    <ul>
+    {% for entry in entries %}
+      <li>{{ entry[0] }} - {{ entry[1:] }}</li>
+    {% endfor %}
+    </ul>
+  {% endfor %}
 
-TEMPLATE_LIST = """
-<!doctype html>
-<html><head><meta charset="utf-8"><title>欠食一覧</title></head>
-<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
-<h2>📋 現在の欠食者一覧</h2>
-{% for key, names in skips.items() %}
-<h3>{{ key }}</h3>
-<ul>
-  {% for name in names %}<li>{{ name }}</li>{% endfor %}
-</ul>
-{% endfor %}
-<a href="/">◀ 戻る</a>
-</body></html>
+  <a href="/delete">欠食申請の削除はこちら</a><br>
+  <a href="/comments">📢 お知らせを書く</a><br>
+  <a href="/csv">📂 過去の欠食記録CSV</a>
+</body>
+</html>
 """
 
 TEMPLATE_DELETE = """
-<!doctype html>
-<html><head><meta charset="utf-8"><title>欠食削除</title></head>
-<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
-<h2>🗑️ 欠食申請を削除</h2>
-<form method="post">
-<label>名前：</label>
-<select name="name">
-  {% for m in members %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
-</select>
-<p>削除したい申請（該当するものに✔）：</p>
-{% for row in options %}
-  <label><input type="checkbox" name="{{ row['日付'] }}_{{ row['食事'] }}"> {{ row['日付'] }} {{ row['食事'] }}</label><br>
-{% endfor %}
-<button type="submit">削除</button>
-</form>
-<a href="/">◀ 戻る</a>
-</body></html>
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>欠食削除</title></head>
+<body>
+  <h1>欠食削除フォーム</h1>
+  <form method="POST">
+    <label>名前:
+      <select name="name" required>
+        {% for name in members %}
+          <option value="{{ name }}">{{ name }}</option>
+        {% endfor %}
+      </select>
+    </label><br>
+    <label>日付:
+      <input type="date" name="date" required>
+    </label><br>
+    <button type="submit">削除</button>
+  </form>
+  <a href="/">戻る</a>
+</body>
+</html>
 """
+import os
 
-TEMPLATE_ANNOUNCE = """
-<!doctype html>
-<html><head><meta charset="utf-8"><title>お知らせ</title></head>
-<body style="background:#e9f1ec;font-family:'Yu Mincho';color:#004225;padding:20px;">
-<h2>📢 お知らせ投稿</h2>
-<form method="post">
-<label>名前：</label><input name="author" required><br>
-<label>お知らせ：</label><textarea name="message" required></textarea><br>
-<label>開始日：</label><input type="date" name="start" required><br>
-<label>終了日：</label><input type="date" name="end" required><br>
-<button type="submit">投稿</button>
-</form>
-<h3>現在のお知らせ</h3>
-{% for a in announcements %}
-  <p><strong>{{ a.author }}</strong>：{{ a.message }}（{{ a.start }}〜{{ a.end }}）<a href="/announce/delete/{{ loop.index0 }}">❌削除</a></p>
-{% endfor %}
-<a href="/">◀ 戻る</a>
-</body></html>
-"""
-
-# 最後にアプリを起動
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
