@@ -1,0 +1,60 @@
+<!-- templates/past.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>📂 過去の欠食申請一覧</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #ffffff;
+            padding: 20px;
+        }
+        h1 {
+            background-image: repeating-linear-gradient(
+                0deg,
+                #004d26,
+                #004d26 20px,
+                #ffffff 20px,
+                #ffffff 40px
+            );
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        th {
+            background-color: #004d26;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>📂 過去の欠食申請一覧</h1>
+    <table>
+        <tr>
+            <th>名前</th>
+            <th>日付</th>
+            <th>時間帯</th>
+        </tr>
+        {% for row in records %}
+        <tr>
+            <td>{{ row.name }}</td>
+            <td>{{ row.date }}</td>
+            <td>{{ row.time }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
