@@ -7,41 +7,45 @@
     <style>
         body {
             font-family: 'Helvetica', sans-serif;
+            background-color: #ffffff;
+            padding: 20px;
+            color: #003300;
+        }
+        .header {
             background: repeating-linear-gradient(
                 45deg,
                 #004d26,
                 #004d26 20px,
-                #f0f0f0 20px,
-                #f0f0f0 40px
+                #ffffff 20px,
+                #ffffff 40px
             );
+            color: #004d26;
             padding: 20px;
-            color: #fff;
-        }
-        h1 {
-            color: darkgreen;
-            background-color: white;
-            padding: 15px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
             border-radius: 10px;
+            margin-bottom: 30px;
         }
         ul {
             list-style: none;
             padding: 0;
         }
         li {
-            background-color: white;
-            color: #000;
-            margin: 10px 0;
+            background: #f0f0f0;
             padding: 15px;
+            margin: 10px 0;
             border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .delete-button {
             background-color: red;
             color: white;
-            padding: 6px 10px;
             border: none;
+            padding: 8px 15px;
             border-radius: 5px;
-            font-weight: bold;
-            margin-left: 10px;
             cursor: pointer;
         }
         .delete-button:hover {
@@ -50,14 +54,14 @@
     </style>
 </head>
 <body>
-    <h1>🗑️ 欠食申請の削除</h1>
+    <div class="header">❌ 欠食申請の削除</div>
     <ul>
     {% for entry in entries %}
         <li>
             {{ entry.name }} さんの {{ entry.date }}（{{ entry.time }}）を削除しますか？
-            <form method="POST" action="/delete_confirm" style="display:inline;">
+            <form method="POST" action="/delete_confirm">
                 <input type="hidden" name="id" value="{{ entry.id }}">
-                <button class="delete-button">削除</button>
+                <button class="delete-button">× 削除</button>
             </form>
         </li>
     {% endfor %}
