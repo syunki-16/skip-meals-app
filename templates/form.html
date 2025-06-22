@@ -1,50 +1,91 @@
+<!-- form.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
-  <link rel="stylesheet" href="/static/style.css">
+    <meta charset="UTF-8">
+    <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
+    <style>
+        body {
+            font-family: 'Helvetica', sans-serif;
+            background-color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        header {
+            background-image: linear-gradient(45deg, white 25%, #004d26 25%, #004d26 50%, white 50%, white 75%, #004d26 75%);
+            background-size: 40px 40px;
+            padding: 20px;
+            text-align: center;
+            color: darkgreen;
+        }
+        form {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        label, select, input[type="date"] {
+            display: block;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        .checkboxes {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .submit-button {
+            background-color: darkgreen;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .submit-button:hover {
+            background-color: #006622;
+        }
+        .nav {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .nav a {
+            margin: 0 10px;
+            color: purple;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-  <div class="header">
-    <h1>🍴 芝浦工業大学駅伝部 欠食申請フォーム</h1>
-  </div>
+    <header>
+        <h1>🍴 芝浦工業大学駅伝部 欠食申請フォーム</h1>
+    </header>
+    <form method="POST">
+        <label>名前：</label>
+        <select name="name" required>
+            <option value="">--選択--</option>
+            {% for m in members %}
+                <option value="{{ m }}">{{ m }}</option>
+            {% endfor %}
+        </select>
 
-  {% if active_announcements %}
-  <div class="announcement-box">
-    {% for ann in active_announcements %}
-      <p><strong>{{ ann.name }}：</strong>{{ ann.comment }}（{{ ann.start_date }}〜{{ ann.end_date }}）</p>
-    {% endfor %}
-  </div>
-  {% endif %}
+        <label>申告したい日付：</label>
+        <input type="date" name="date" required>
 
-  <form method="POST">
-    <label for="name">名前：</label>
-    <select name="name" id="name">
-      <option value="">--選択--</option>
-      {% for m in members %}
-        <option value="{{ m }}">{{ m }}</option>
-      {% endfor %}
-    </select>
+        <div class="checkboxes">
+            <label><input type="checkbox" name="time" value="朝"> 朝</label>
+            <label><input type="checkbox" name="time" value="夜"> 夜</label>
+        </div>
 
-    <label for="date">申告したい日付：</label>
-    <input type="date" name="date" id="date">
+        <button class="submit-button" type="submit">出出</button>
+    </form>
 
-    <div class="checkboxes">
-      <label><input type="checkbox" name="time" value="朝"> 朝</label>
-      <label><input type="checkbox" name="time" value="夜"> 夜</label>
+    <div class="nav">
+        <a href="/list">▶ 今週の欠食一覧</a>
+        <a href="/past">▶ 過去の欠食一覧</a>
+        <a href="/csv">▶ CSVを見る</a>
     </div>
-
-    <label for="comment">コメント（任意）：</label>
-    <textarea name="comment" id="comment" rows="2"></textarea>
-
-    <button type="submit">提出</button>
-  </form>
-
-  <div class="nav-links">
-    <a href="/list">▶今週の欠食一覧</a>
-    <a href="/list?past=1">▶過去の欠食一覧</a>
-    <a href="/csv">▶CSVを見る</a>
-  </div>
 </body>
 </html>
