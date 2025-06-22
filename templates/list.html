@@ -1,16 +1,70 @@
+<!-- list.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>欠食者一覧</title>
+    <meta charset="UTF-8">
+    <title>欠食者一覧</title>
+    <style>
+        body {
+            font-family: 'Helvetica', sans-serif;
+            background: repeating-linear-gradient(
+                45deg,
+                #004d26,
+                #004d26 20px,
+                #f0f0f0 20px,
+                #f0f0f0 40px
+            );
+            padding: 20px;
+        }
+        h1 {
+            color: darkgreen;
+            background-color: white;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            margin-top: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        .delete-button {
+            color: white;
+            background-color: red;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .delete-button:hover {
+            background-color: darkred;
+        }
+    </style>
 </head>
 <body>
-  <h1>欠食者一覧</h1>
-  {% for date, times in skips.items() %}
-    <h2>{{ date }}</h2>
-    <strong>朝:</strong> {{ times['朝'] | join(', ') }}<br>
-    <strong>夜:</strong> {{ times['夜'] | join(', ') }}<br><br>
-  {% endfor %}
-  <a href="/form">戻る</a>
+    <h1>🧾 今週の欠食者一覧</h1>
+    <table>
+        <tr><th>名前</th><th>日付</th><th>時間帯</th><th>削除</th></tr>
+        {% for record in records %}
+            <tr>
+                <td>{{ record.name }}</td>
+                <td>{{ record.date }}</td>
+                <td>{{ record.time }}</td>
+                <td>
+                    <form method="POST" action="/delete">
+                        <input type="hidden" name="id" value="{{ record.id }}">
+                        <button class="delete-button">&#x2715;</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+    </table>
 </body>
 </html>
