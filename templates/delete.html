@@ -1,84 +1,3 @@
-<!-- list.html -->
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <title>今週の欠食者一覧</title>
-    <style>
-        body {
-            font-family: 'Helvetica', sans-serif;
-            background-color: #004225;
-            color: #fff;
-            padding: 20px;
-        }
-        h1 {
-            background-color: #fff;
-            color: darkgreen;
-            padding: 15px;
-            font-size: 1.8em;
-            text-align: center;
-            border-radius: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background-color: white;
-            color: #333;
-        }
-        th, td {
-            padding: 10px;
-            border: 1px solid #ccc;
-            text-align: center;
-        }
-        .delete-button {
-            background-color: #c00;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .delete-button:hover {
-            background-color: #900;
-        }
-        .back-links {
-            margin-top: 20px;
-        }
-        .back-links a {
-            color: #ffccff;
-            margin-right: 15px;
-            text-decoration: none;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <h1>今週の欠食者一覧</h1>
-    <table>
-        <tr><th>名前</th><th>日付</th><th>時間帯</th><th>削除</th></tr>
-        {% for record in records %}
-            <tr>
-                <td>{{ record.name }}</td>
-                <td>{{ record.date }}</td>
-                <td>{{ record.time }}</td>
-                <td>
-                    <form method="POST" action="/delete">
-                        <input type="hidden" name="id" value="{{ record.id }}">
-                        <button class="delete-button">×</button>
-                    </form>
-                </td>
-            </tr>
-        {% endfor %}
-    </table>
-    <div class="back-links">
-        <a href="/form">◀ フォームに戻る</a>
-        <a href="/csv">▶ CSV を見る</a>
-    </div>
-</body>
-</html>
-
-
 <!-- delete.html -->
 <!DOCTYPE html>
 <html lang="ja">
@@ -88,34 +7,50 @@
     <style>
         body {
             font-family: 'Helvetica', sans-serif;
-            background-color: #fff9f4;
+            background: repeating-linear-gradient(
+                45deg,
+                #004d26,
+                #004d26 20px,
+                #f0f0f0 20px,
+                #f0f0f0 40px
+            );
             padding: 20px;
+            color: #fff;
         }
         h1 {
-            background-color: darkgreen;
-            color: white;
+            color: darkgreen;
+            background-color: white;
             padding: 15px;
-            text-align: center;
+            border-radius: 10px;
         }
         ul {
             list-style: none;
             padding: 0;
         }
         li {
+            background-color: white;
+            color: #000;
             margin: 10px 0;
-            background: #f0f0f0;
-            padding: 10px;
-            border-radius: 5px;
+            padding: 15px;
+            border-radius: 8px;
         }
         .delete-button {
-            color: red;
+            background-color: red;
+            color: white;
+            padding: 6px 10px;
+            border: none;
+            border-radius: 5px;
             font-weight: bold;
             margin-left: 10px;
+            cursor: pointer;
+        }
+        .delete-button:hover {
+            background-color: darkred;
         }
     </style>
 </head>
 <body>
-    <h1>欠食申請の削除</h1>
+    <h1>🗑️ 欠食申請の削除</h1>
     <ul>
     {% for entry in entries %}
         <li>
