@@ -1,91 +1,134 @@
-<!-- form.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>芝浦工業大学駅伝部 欠食申請フォーム</title>
+    <title>欠食申請フォーム</title>
     <style>
         body {
-            font-family: 'Helvetica', sans-serif;
-            background-color: white;
+            font-family: sans-serif;
             margin: 0;
-            padding: 20px;
+            background-color: white;
         }
         header {
-            background-image: linear-gradient(45deg, white 25%, #004d26 25%, #004d26 50%, white 50%, white 75%, #004d26 75%);
+            background-color: #fff;
+        }
+        .title-area {
+            background-image: repeating-linear-gradient(0deg,
+                #004d26, #004d26 20px,
+                #ffffff, #ffffff 40px);
             background-size: 40px 40px;
             padding: 20px;
             text-align: center;
-            color: darkgreen;
+            color: white;
         }
-        form {
-            background: #f9f9f9;
-            padding: 20px;
+        h1 {
+            margin: 0;
+            font-size: 32px;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: inline-block;
+            padding: 10px 20px;
             border-radius: 10px;
-            max-width: 500px;
-            margin: 0 auto;
         }
-        label, select, input[type="date"] {
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 30px;
+        }
+        .announcement {
+            background-color: #e0f2e9;
+            border-left: 5px solid #004d26;
+            padding: 10px;
+            margin: 15px 0;
+        }
+        label {
             display: block;
-            margin-bottom: 15px;
+            margin-top: 15px;
+        }
+        input, select {
             width: 100%;
+            padding: 8px;
+            margin-top: 5px;
         }
-        .checkboxes {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
+        .checkbox-group {
+            margin-top: 10px;
         }
-        .submit-button {
-            background-color: darkgreen;
+        .checkbox-group input {
+            margin-right: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
+            width: 100%;
+            background-color: #004d26;
             color: white;
             border: none;
-            padding: 10px 20px;
             border-radius: 5px;
-            cursor: pointer;
+            font-size: 16px;
         }
-        .submit-button:hover {
-            background-color: #006622;
+        button:hover {
+            background-color: #006b3f;
         }
-        .nav {
-            margin-top: 30px;
-            text-align: center;
-        }
-        .nav a {
-            margin: 0 10px;
-            color: purple;
-            text-decoration: none;
-            font-weight: bold;
+        hr {
+            margin: 30px 0;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>🍴 芝浦工業大学駅伝部 欠食申請フォーム</h1>
+    <header class="title-area">
+        <h1>🏃 欠食申請フォーム</h1>
     </header>
-    <form method="POST">
-        <label>名前：</label>
-        <select name="name" required>
-            <option value="">--選択--</option>
-            {% for m in members %}
-                <option value="{{ m }}">{{ m }}</option>
-            {% endfor %}
-        </select>
 
-        <label>申告したい日付：</label>
-        <input type="date" name="date" required>
+    <div class="container">
 
-        <div class="checkboxes">
-            <label><input type="checkbox" name="time" value="朝"> 朝</label>
-            <label><input type="checkbox" name="time" value="夜"> 夜</label>
-        </div>
+        <!-- お知らせ表示 -->
+        {% for a in announcements %}
+            <div class="announcement">
+                <strong>{{ a.author }}</strong> より：<br>
+                {{ a.message }}<br>
+                （{{ a.start }} 〜 {{ a.end }}）
+                <form method="POST" action="/announce/delete">
+                    <input type="hidden" name="id" value="{{ a.id }}">
+                    <button style="margin-top:5px; background-color:red;">削除</button>
+                </form>
+            </div>
+        {% endfor %}
 
-        <button class="submit-button" type="submit">出出</button>
-    </form>
+        <form method="POST" action="/form">
+            <!-- お知らせ投稿欄 -->
+            <hr>
+            <h3>📢 お知らせ投稿</h3>
+            <label>名前</label>
+            <input type="text" name="author" placeholder="例：徳本監督">
+            <label>メッセージ</label>
+            <input type="text" name="message" placeholder="例：今週は朝練あります">
+            <label>開始日</label>
+            <input type="date" name="start">
+            <label>終了日</label>
+            <input type="date" name="end">
 
-    <div class="nav">
-        <a href="/list">▶ 今週の欠食一覧</a>
-        <a href="/past">▶ 過去の欠食一覧</a>
-        <a href="/csv">▶ CSVを見る</a>
+            <!-- 欠食申請欄 -->
+            <hr>
+            <h3>🍴 欠食申請</h3>
+            <label>名前</label>
+            <select name="name">
+                <option value="">選択してください</option>
+                {% for member in members %}
+                    <option value="{{ member }}">{{ member }}</option>
+                {% endfor %}
+            </select>
+
+            <label>日付</label>
+            <input type="date" name="date">
+
+            <label>時間帯</label>
+            <div class="checkbox-group">
+                <label><input type="checkbox" name="times" value="朝"> 朝</label>
+                <label><input type="checkbox" name="times" value="昼"> 昼</label>
+                <label><input type="checkbox" name="times" value="夜"> 夜</label>
+            </div>
+
+            <button type="submit">送信</button>
+        </form>
     </div>
 </body>
 </html>
